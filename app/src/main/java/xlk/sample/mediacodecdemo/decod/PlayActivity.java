@@ -7,6 +7,9 @@ import android.view.SurfaceView;
 import androidx.appcompat.app.AppCompatActivity;
 import xlk.sample.mediacodecdemo.R;
 
+/**
+ * @author xlk
+ */
 public class PlayActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
     private SurfaceView surfaceView;
@@ -50,7 +53,7 @@ public class PlayActivity extends AppCompatActivity implements SurfaceHolder.Cal
             videoDecodeThread.quit();
         }
         if (soundDecodeThread != null) {
-            soundDecodeThread.interrupt();
+            soundDecodeThread.quit();
         }
     }
 }

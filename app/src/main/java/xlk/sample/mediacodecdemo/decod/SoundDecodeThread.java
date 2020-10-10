@@ -11,6 +11,7 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Created by xlk on 2020/9/29.
@@ -21,6 +22,7 @@ public class SoundDecodeThread extends Thread {
     private final String filePath;
     private MediaCodec mediaCodec;
     private AudioPlayer audioPlayer;
+    private AtomicBoolean quit = new AtomicBoolean(false);
     MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
     private MediaExtractor mediaExtractor;
 
@@ -43,37 +45,24 @@ public class SoundDecodeThread extends Thread {
         }
     }
 
-    private void release() {
-        try {
-            if (mediaCodec != null) {
-                mediaCodec.stop();
-                mediaCodec.release();
-                mediaCodec = null;
-            }
-            if (mediaExtractor != null) {
-                mediaExtractor.release();
-                mediaExtractor = null;
-            }
-            Log.d(TAG, "release end");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private void initMediaCodec() throws IOException {
         mediaExtractor = new MediaExtractor();
         Log.d(TAG, "initMediaCodec filePath=" + filePath);
-        mediaExtractor.setDataSource(filePath);
-//        File file = new File(filePath);
-//        FileInputStream fis = new FileInputStream(file);
-//        FileDescriptor fd = fis.getFD();
-//        mediaExtractor.setDataSource(fd);
+        try {
+//            mediaExtractor.setDataSource(filePath);
+            File file = new File(filePath);
+            FileInputStream fis = new FileInputStream(file);
+            FileDescriptor fd = fis.getFD();
+            mediaExtractor.setDataSource(fd);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         for (int i = 0; i < mediaExtractor.getTrackCount(); i++) {
             MediaFormat format = mediaExtractor.getTrackFormat(i);
             String mimeType = format.getString(MediaFormat.KEY_MIME);
-            Log.d(TAG, "initMediaCodec mimeType=" + mimeType);
-            if (mimeType.startsWith("audio/")) {
-                Log.d(TAG, "initMediaCodec format=" + format);
+            Log.d(TAG, "initMediaCodec :  获取音频format信息 --> " + format);
+            //判断是否是音频信道
+            if (mimeType != null && mimeType.startsWith("audio/")) {
                 //切换到音频信道
                 mediaExtractor.selectTrack(i);
                 mediaCodec = MediaCodec.createDecoderByType(mimeType);
@@ -91,7 +80,7 @@ public class SoundDecodeThread extends Thread {
     private void startDecoding() {
         boolean bIsEos = false;
         long startMs = System.currentTimeMillis();
-        while (!isInterrupted()) {
+        while (!quit.get()) {
             if (!bIsEos) {
                 int inIndex = mediaCodec.dequeueInputBuffer(0);
                 if (inIndex >= 0) {
@@ -120,16 +109,42 @@ public class SoundDecodeThread extends Thread {
                     }
                 }
                 byte[] outData = new byte[bufferInfo.size];
-                outputBuffer.put(outData);
+                outputBuffer.get(outData);
+                //清空缓存
                 outputBuffer.clear();
+                //播放解码后的数据
                 audioPlayer.play(outData, 0, bufferInfo.size);
                 mediaCodec.releaseOutputBuffer(outIndex, true);
             }
             //所有解码的帧均已渲染，我们现在可以停止播放
             if (bufferInfo.flags == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
-                break;
+                quit();
             }
         }
     }
 
+    private void release() {
+        try {
+            if (mediaCodec != null) {
+                mediaCodec.stop();
+                mediaCodec.release();
+                mediaCodec = null;
+            }
+            if (mediaExtractor != null) {
+                mediaExtractor.release();
+                mediaExtractor = null;
+            }
+            if (audioPlayer != null) {
+                audioPlayer.release();
+                audioPlayer = null;
+            }
+            Log.d(TAG, "release end");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void quit() {
+        quit.set(true);
+    }
 }

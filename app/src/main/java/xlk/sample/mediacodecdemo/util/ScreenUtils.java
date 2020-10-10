@@ -100,8 +100,6 @@ public class ScreenUtils {
 
     /**
      * 标题栏高度
-     *
-     * @return
      */
     public static int getTitleBarHeight(Activity activity) {
         int top = activity.getWindow().findViewById(Window.ID_ANDROID_CONTENT).getTop();
@@ -134,8 +132,6 @@ public class ScreenUtils {
     /**
      * 获取虚拟键高度(无论是否隐藏)
      *
-     * @param context
-     * @return
      */
     public static int getNavigationBarHeight(Context context) {
         int result = 0;
@@ -172,7 +168,6 @@ public class ScreenUtils {
         Log.i(TAG, "虚拟按键是否打开：" + isShow);
         return isShow;
     }
-
 
     /**
      * 判断虚拟导航栏是否显示

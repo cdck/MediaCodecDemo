@@ -20,13 +20,15 @@ import android.widget.TextView;
 import com.hjq.permissions.OnPermission;
 import com.hjq.permissions.XXPermissions;
 
-import java.io.File;
 import java.net.FileNameMap;
 import java.net.URLConnection;
 import java.util.List;
 
 import static android.content.Intent.ACTION_OPEN_DOCUMENT;
 
+/**
+ * @author xlk
+ */
 public class MainActivity extends AppCompatActivity {
 
     private final String TAG = "MainActivity-->";
@@ -41,7 +43,9 @@ public class MainActivity extends AppCompatActivity {
         tv_show = findViewById(R.id.tv_show);
         XXPermissions.with(this)
                 .permission(Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                        Manifest.permission.READ_EXTERNAL_STORAGE)
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.RECORD_AUDIO
+                )
                 .request(new OnPermission() {
                     @Override
                     public void hasPermission(List<String> granted, boolean all) {
@@ -65,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
      */
     public void getVirtualHeight(View view) {
         tv_show.setText("当前屏幕方向：" + (ScreenUtils.isVertical(this) ? "竖屏" : "横屏")
-                + "\n屏幕宽高：" + ScreenUtils.getScreenWidth(this) + "x" + ScreenUtils.getScreenHeight(this)
+                + "\n屏幕宽高：" + ScreenUtils.getScreenWidth(this) + " x " + ScreenUtils.getScreenHeight(this)
                 + "\n状态栏高度：" + ScreenUtils.getStatusBarHeight(this)
                 + "\n标题栏高度：" + ScreenUtils.getTitleBarHeight(this)
                 + "\n是否有虚拟按键：" + ScreenUtils.isNavigationBarShown(this)

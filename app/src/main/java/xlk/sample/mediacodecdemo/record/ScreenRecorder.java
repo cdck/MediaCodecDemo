@@ -7,7 +7,6 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.media.projection.MediaProjection;
-import android.os.Environment;
 import android.util.Log;
 import android.util.Range;
 import android.view.Surface;
@@ -31,7 +30,7 @@ public class ScreenRecorder extends Thread {
     /**
      * 帧率
      */
-    private final int FRAME_RATE = 18;
+    private final int FRAME_RATE = 30;
     /**
      * 关键帧间隔  两关键帧之间的其它帧 = 18*2
      */
@@ -40,6 +39,7 @@ public class ScreenRecorder extends Thread {
      * 超时值
      */
     private final int TIMEOUT_US = 10 * 1000;
+    private final String saveFilePath;
     private int width, height, bitrate, dpi;
     MediaProjection projection;
     private MediaCodec encoder;
@@ -47,8 +47,8 @@ public class ScreenRecorder extends Thread {
     private VirtualDisplay display;
     private MediaMuxer mediaMuxer;
 
-    public ScreenRecorder(int w, int h, int dpi, MediaProjection projection) {
-        Log.i(TAG, "ScreenRecorder w=" + w + ",h=" + h + ",dpi=" + dpi);
+    public ScreenRecorder(int w, int h, int dpi, MediaProjection projection, String saveFilePath) {
+        Log.i(TAG, "ScreenRecorder w=" + w + ",h=" + h + ",dpi=" + dpi + ",saveFilePath=" + saveFilePath);
         if (w % 2 != 0) {
             w--;
             Log.e(TAG, "宽必须是2的倍数 ");
@@ -62,6 +62,7 @@ public class ScreenRecorder extends Thread {
         this.bitrate = width * height * 3;
         this.dpi = dpi;
         this.projection = projection;
+        this.saveFilePath = saveFilePath;
     }
 
     @Override
@@ -70,12 +71,12 @@ public class ScreenRecorder extends Thread {
         try {
             //初始化编码器
             prepareEncoder();
-            File file = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/mediacodecdemo.mp4");
+            File file = new File(saveFilePath);
             if (file.exists()) {
                 file.delete();
             }
             file.createNewFile();
-            mediaMuxer = new MediaMuxer(Environment.getExternalStorageDirectory().getAbsolutePath() + "/mediacodecdemo.mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            mediaMuxer = new MediaMuxer(saveFilePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
             //创建VirtualDisplay实例,DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC / DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR
             display = projection.createVirtualDisplay("MainScreen", width, height, dpi,
@@ -95,19 +96,6 @@ public class ScreenRecorder extends Thread {
      * @throws IOException MediaCodec.createEncoderByType
      */
     private void prepareEncoder() throws IOException {
-//        MediaCodecList mediaCodecList = new MediaCodecList(REGULAR_CODECS);
-//        MediaCodecInfo[] codecInfos = mediaCodecList.getCodecInfos();
-//        for (MediaCodecInfo info : codecInfos) {
-//            if (info.isEncoder()) {
-//                String[] supportedTypes = info.getSupportedTypes();
-//                String log = "当前编码器：" + info.getName() + ",所支持的类型【 ";
-//                for (String type : supportedTypes) {
-//                    log += type + " # ";
-//                }
-//                log += " 】";
-//                Log.d(TAG, log);
-//            }
-//        }
         //1.创建编码器
         encoder = MediaCodec.createEncoderByType(MIME_TYPE);
         //2.调整宽高
@@ -121,7 +109,7 @@ public class ScreenRecorder extends Thread {
         height = supportedHeights.clamp(height);
         Log.e(TAG, "prepareEncoder width=" + this.width + ",height=" + height + ",bitrate=" + bitrate);
         //3.初始化MediaFormat
-        MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, this.width, height);
+        MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
         // 码率 越高越清晰 仅编码器需要设置
         format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
         format.setInteger("max-bitrate", bitrate);
@@ -131,7 +119,7 @@ public class ScreenRecorder extends Thread {
         // 将一个Android surface进行mediaCodec编码
         // 帧数 越高越流畅,24以下会卡顿
         format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
-        //画面静止时不会发送数据，屏幕内容有变化才会刷新
+        //画面静止时不会发送数据，屏幕内容有变化才会刷新，
         //仅在以“表面输入”模式配置视频编码器时适用。相关值为long，并给出以微秒为单位的时间，
         //设置如果之后没有新帧可用，则先前提交给编码器的帧在 1000000 / FRAME_RATE 微秒后重复（一次）
         format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1000000 / FRAME_RATE);
@@ -143,7 +131,8 @@ public class ScreenRecorder extends Thread {
         encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         // 这一步非常关键，它设置的，是MediaCodec的编码源，也就是说，要告诉Encoder解码哪些流。
         mSurface = encoder.createInputSurface();
-        encoder.start();// 开始编码
+        // 开始编码
+        encoder.start();
     }
 
     private AtomicBoolean quit = new AtomicBoolean(false);
@@ -216,6 +205,7 @@ public class ScreenRecorder extends Thread {
 
     /**
      * 写入文件
+     *
      * @param encodeData 录屏数据
      */
     private void read2file(ByteBuffer encodeData) {
